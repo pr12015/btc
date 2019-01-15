@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import QWidget, QListWidget, QAbstractItemView, QLabel, QVB
     QListWidgetItem, QMainWindow, QApplication, QFileDialog, QMessageBox, QDialog, QDialogButtonBox, QTreeWidget, \
     QTreeWidgetItem, QHeaderView, QHBoxLayout, QPushButton, QLineEdit, QAction
 
-from torrent import TrackerInfo, TorrentInfo
+from btc.torrent import TrackerInfo, TorrentInfo
 from math import floor, log
 
 

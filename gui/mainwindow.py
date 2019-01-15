@@ -17,12 +17,12 @@ from PyQt5.QtWidgets import QWidget, QListWidget, QAbstractItemView, QLabel, QVB
 
 # <<<<<<< HEAD
 # =======
-from gui import dialog
+from btc.gui import dialog
 
 # >>>>>>> ae28bc8d43a96238f88d05f74e403dcb1fba7c84
 from math import floor, log
 
-from torrent import TorrentInfo, TrackerInfo
+from btc.torrent import TorrentInfo, TrackerInfo
 
 ICON_DIRECTORY = os.path.join(os.path.dirname(__file__), 'icons')
 
@@ -612,9 +612,9 @@ class TorrentListWidgetItem(QWidget):
           # indicate start
         # start thread which listens on the child_connection
 
-        t = Thread(target=self.listen, args=[self.q])
-        # self.q.put('go')
-        t.start()
+        # t = Thread(target=self.listen, args=[self.q])
+        # # self.q.put('go')
+        # t.start()
 
         process = mp.Process(target=runner, args=[self.q])
         process.start()
@@ -626,14 +626,14 @@ class TorrentListWidgetItem(QWidget):
         self._state = None
         self._waiting_control_action = False
 	
-	def listen(self, q: mp.Queue):
-        while True:
-            num = self.q.get()
-            # self.progress_bar.setValue(format(num))
-            print("got {0}".format(num))
-            self.progress_bar.setValue(num)
-            if num == 100:
-                break
+	# def listen(self, q: mp.Queue):
+    #     while True:
+    #         num = self.q.get()
+    #         # self.progress_bar.setValue(format(num))
+    #         print("got {0}".format(num))
+    #         self.progress_bar.setValue(num)
+    #         if num == 100:
+    #             break
 				
     def set_name(self, name):
         self._name_label.setText(name)
@@ -696,7 +696,7 @@ class Example(QMainWindow):
 
         self._remove_action = toolbar.addAction(load_icon('remove'), 'Remove')
         self._remove_action.setEnabled(False)
-        self._remove_action.triggered.connect(partial(self._control_action_triggered))
+        self._remove_action.triggered.connect(partial(self._remove_torrent_item))
 
         self._about_action = toolbar.addAction(load_icon('about'), 'About')
         self._about_action.triggered.connect(self._show_about)
@@ -709,7 +709,7 @@ class Example(QMainWindow):
 
         self.setCentralWidget(self._list_widget)
 
-        self.setGeometry(300, 300, 350, 250)
+        self.setGeometry(300, 300, 500, 300)
         self.setWindowTitle('Main window')
         self.show()
 
@@ -745,6 +745,14 @@ class Example(QMainWindow):
         paths, _ = QFileDialog.getOpenFileName(self, 'Add file', '','All files (*)')
         self.create_torrent_files(paths)
 
+    def _remove_torrent_item(self):
+        listItems = self._list_widget.selectedItems()
+        if not listItems: return
+        for item in listItems:
+            self._list_widget.takeItem(self._list_widget.row(item))
+
+        self._update_control_action_state()
+
     def _show_about(self):
         pass
 
@@ -775,7 +783,7 @@ class Example(QMainWindow):
             torrent_info = TorrentInfo.Torrent(info, '', download_path, tracker)
 
             dialog.TorrentAddingDialog(self, tmp, torrent_info).exec()
-            
+            self._update_control_action_state()
             # ovu proveru cemo sami uraditi
             # if torrent_info.download_info.info_hash in self._torrent_to_item:
                 # raise ValueError('This torrent is already added')
@@ -794,14 +802,11 @@ class Example(QMainWindow):
         self._remove_action.setEnabled(False)
         for item in self._list_widget.selectedItems():
             widget = self._list_widget.itemWidget(item)
-            if widget.waiting_control_action:
-                continue
+            # if widget.waiting_control_action:
+            #     continue
 
-            if widget.state.paused:
-                self._resume_action.setEnabled(True)
-            else:
-                self._pause_action.setEnabled(True)
-            self._remove_action.setEnabled(True)
+            if self._add_torrents_triggered:
+                self._remove_action.setEnabled(True)
 
 
 if __name__ == '__main__':
