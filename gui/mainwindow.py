@@ -626,7 +626,7 @@ class TorrentListWidgetItem(QWidget):
         self._state = None
         self._waiting_control_action = False
 	
-	def listen(self, q: mp.Queue):
+    def listen(self, q: mp.Queue):
         while True:
             num = self.q.get()
             # self.progress_bar.setValue(format(num))
