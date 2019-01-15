@@ -1,7 +1,10 @@
 import sys
 import os
 import bencode
+import time
+from threading import Thread
 
+import multiprocessing as mp
 from functools import partial, partialmethod
 from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QApplication
 from PyQt5.QtGui import QIcon, QFont, QDropEvent
@@ -601,16 +604,37 @@ class TorrentListWidgetItem(QWidget):
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(15)
         self.progress_bar.setMaximum(100)
-        vbox.addWidget(self.progress_bar)
-        self.progress_bar.setValue(50)
+		
+		# self.progress_bar.setValue(0)
 
+        self.q = mp.Queue()
+
+          # indicate start
+        # start thread which listens on the child_connection
+
+        t = Thread(target=self.listen, args=[self.q])
+        # self.q.put('go')
+        t.start()
+
+        process = mp.Process(target=runner, args=[self.q])
+        process.start()
+        vbox.addWidget(self.progress_bar)
         self.lower_status_label = QLabel()
         self.lower_status_label.setFont(TorrentListWidgetItem._stats_font)
         vbox.addWidget(self.lower_status_label)
 
         self._state = None
         self._waiting_control_action = False
-
+	
+	def listen(self, q: mp.Queue):
+        while True:
+            num = self.q.get()
+            # self.progress_bar.setValue(format(num))
+            print("got {0}".format(num))
+            self.progress_bar.setValue(num)
+            if num == 100:
+                break
+				
     def set_name(self, name):
         self._name_label.setText(name)
 
@@ -623,7 +647,15 @@ class TorrentListWidgetItem(QWidget):
     def set_progress(self, progress):
         self.progress_bar.setValue(progress)
 
+		
+def runner(q: mp.Queue):
+    go = q.get() # wait for start
+    for i in range(101):
+        q.put(i)
+        print("put {0}".format(i))
+        time.sleep(0.1)
 
+		
 class Example(QMainWindow):
     torrent_added = pyqtSignal(TorrentInfo.Torrent)
     def __init__(self):
@@ -664,7 +696,7 @@ class Example(QMainWindow):
 
         self._remove_action = toolbar.addAction(load_icon('remove'), 'Remove')
         self._remove_action.setEnabled(False)
-        self._remove_action.triggered.connect(partial(self._remove_torrent_item))
+        self._remove_action.triggered.connect(partial(self._control_action_triggered))
 
         self._about_action = toolbar.addAction(load_icon('about'), 'About')
         self._about_action.triggered.connect(self._show_about)
@@ -685,7 +717,7 @@ class Example(QMainWindow):
         # torrent_info parameter will be used later.
         widget = TorrentListWidgetItem()
         widget.set_name("FIRST TORRENT")
-        widget.set_progress(50)
+        # widget.set_progress(0)
         widget.set_lower_status("LOWER STATUS")
 
         item = QListWidgetItem()
@@ -712,14 +744,6 @@ class Example(QMainWindow):
     def _create_torrents_triggered(self):
         paths, _ = QFileDialog.getOpenFileName(self, 'Add file', '','All files (*)')
         self.create_torrent_files(paths)
-
-    def _remove_torrent_item(self):
-        listItems = self._list_widget.selectedItems()
-        if not listItems: return
-        for item in listItems:
-            self._list_widget.takeItem(self._list_widget.row(item))
-
-        self._update_control_action_state()
 
     def _show_about(self):
         pass
@@ -751,7 +775,7 @@ class Example(QMainWindow):
             torrent_info = TorrentInfo.Torrent(info, '', download_path, tracker)
 
             dialog.TorrentAddingDialog(self, tmp, torrent_info).exec()
-            self._update_control_action_state()
+            
             # ovu proveru cemo sami uraditi
             # if torrent_info.download_info.info_hash in self._torrent_to_item:
                 # raise ValueError('This torrent is already added')
@@ -770,11 +794,14 @@ class Example(QMainWindow):
         self._remove_action.setEnabled(False)
         for item in self._list_widget.selectedItems():
             widget = self._list_widget.itemWidget(item)
-            # if widget.waiting_control_action:
-            #     continue
+            if widget.waiting_control_action:
+                continue
 
-            if self._add_torrents_triggered:
-                self._remove_action.setEnabled(True)
+            if widget.state.paused:
+                self._resume_action.setEnabled(True)
+            else:
+                self._pause_action.setEnabled(True)
+            self._remove_action.setEnabled(True)
 
 
 if __name__ == '__main__':
